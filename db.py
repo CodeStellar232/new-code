@@ -1,14 +1,13 @@
 import sys
 import os
 import pandas as pd
-from serial_port import serial_manager
-
 from PyQt5.QtWidgets import (
-    QApplication, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
-    QPushButton, QGridLayout, QWidget, QMessageBox, QSizePolicy
+    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
+    QPushButton, QGridLayout, QMessageBox, QSizePolicy
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
+from serial_port import serial_manager
 
 
 class DbWindow(QWidget):
@@ -49,13 +48,14 @@ class DbWindow(QWidget):
             }
         """)
 
-        serial_manager.data_received.connect(self.receive_telemetry_data)
-
         self.telemetry_fields = [
             "Team ID", "Timestamp", "Packet Count", "Altitude", "Pressure", "Temperature", "Voltage",
             "GNSS Time", "GNSS Latitude", "GNSS Longitude", "GNSS Altitude", "GNSS Satellites",
-            "Accel X", "Accel Y", "Accel Z", "Gyro X", "Gyro Y", "Gyro Z", 
+            "Accel X", "Accel Y", "Accel Z", "Gyro X", "Gyro Y", "Gyro Z", "Flight Status"  # ✅ Added
         ]
+
+        serial_manager.data_received.connect(self.update_data)
+
         self.data_store = []
         self.labels = {}
         self.values = {}
@@ -66,13 +66,11 @@ class DbWindow(QWidget):
         main_layout = QHBoxLayout()
         self.setLayout(main_layout)
         main_layout.setContentsMargins(30, 30, 30, 30)
-        main_layout.setSpacing(15
-                               )
+        main_layout.setSpacing(15)
 
         telemetry_group = QGroupBox("Telemetry Dashboard")
         telemetry_layout = QGridLayout()
-        telemetry_layout.setHorizontalSpacing(30
-                                              )
+        telemetry_layout.setHorizontalSpacing(30)
         telemetry_layout.setVerticalSpacing(30)
 
         for i, key in enumerate(self.telemetry_fields):
@@ -147,23 +145,20 @@ class DbWindow(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save data: {e}")
 
-    def update_data_store(self, telemetry_dict, data):
+    def update_data_store(self, telemetry_dict, raw_line):
         self.data_store.append(telemetry_dict)
+
         for key, value in telemetry_dict.items():
             if key in self.values:
                 self.values[key].setText(str(value))
 
-    def receive_telemetry_data(self, line: str):
+    def update_data(self, line: str):
+        print("Received Line:", line)
         parts = line.strip().split(',')
+
         if len(parts) != len(self.telemetry_fields):
+            print(f"⚠️ Invalid telemetry data (expected {len(self.telemetry_fields)} values, got {len(parts)}): {line}")
             return
+
         telemetry_dict = dict(zip(self.telemetry_fields, parts))
         self.update_data_store(telemetry_dict, line)
-
-
-# To test this page standalone:
-# if __name__ == "__main__":
-#     app = QApplication(sys.argv)
-#     win = DbWindow()
-#     win.show()
-#     sys.exit(app.exec_())

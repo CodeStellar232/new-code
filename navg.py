@@ -4,7 +4,6 @@ import warnings
 from PyQt5.QtCore import QPropertyAnimation, QEasingCurve
 from serial_port import serial_manager as serial_port
 
-# Import your integrated pages
 from db import DbWindow as DashboardWidget
 from cs import ConsoleWindow as ConsoleWidget
 from gp import GraphsWindow as GraphWidget
@@ -14,7 +13,6 @@ from trajectory import TrajectoryPage as TrajectoryWidget
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-# ✅ Custom Slide Menu class 
 class CustomSlideMenu(QtWidgets.QWidget):
     def __init__(self, parent=None, expanded_width=150, collapsed_width=60, animation_duration=300):
         super().__init__(parent)
@@ -46,11 +44,16 @@ class CustomSlideMenu(QtWidgets.QWidget):
         self.animation.start()
         self.is_collapsed = not self.is_collapsed
 
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(900, 600)
+        MainWindow.setFixedSize(1100, 700)  # ✅ Fix screen size to prevent uneven maximize
+        MainWindow.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        MainWindow.setWindowFlags(QtCore.Qt.WindowCloseButtonHint | QtCore.Qt.WindowMinimizeButtonHint)
+
         self.centralwidget = QtWidgets.QWidget(MainWindow)
+        self.centralwidget.setObjectName("centralwidget")
         self.centralwidget.setStyleSheet("""
         *{
             border: none;
@@ -87,19 +90,15 @@ class Ui_MainWindow(object):
         }
         """)
 
-        self.centralwidget.setObjectName("centralwidget")
         self.mainLayout = QtWidgets.QVBoxLayout(self.centralwidget)
         self.mainLayout.setContentsMargins(1, 1, 1, 1)
         self.mainLayout.setSpacing(0)
 
-        # Header layout
+        # Header
         self.headerLayout = QtWidgets.QHBoxLayout()
         self.headerLayout.setContentsMargins(0, 0, 0, 0)
         self.headerLayout.setSpacing(0)
-        #self.header.setFixedHeight(90)
 
-
-        # Menu button
         self.widget3 = QtWidgets.QWidget()
         self.widget3.setFixedWidth(60)
         self.verticalLayout_8 = QtWidgets.QVBoxLayout(self.widget3)
@@ -114,10 +113,8 @@ class Ui_MainWindow(object):
         self.menuBtn.setIconSize(QtCore.QSize(30, 30))
         self.menuBtn.setCheckable(True)
         self.verticalLayout_8.addWidget(self.menuBtn)
-
         self.headerLayout.addWidget(self.widget3)
 
-        # Serial Port Settings
         self.header = QtWidgets.QWidget()
         self.header.setMinimumHeight(90)
         self.header.setMaximumHeight(90)
@@ -177,10 +174,10 @@ class Ui_MainWindow(object):
 
         self.side_menu = CustomSlideMenu()
         self.side_menu.setObjectName("side_menu")
+        self.side_menu.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
 
-        sideMenuLayout = self.side_menu.layout  
+        sideMenuLayout = self.side_menu.layout
 
-        # Side Menu Buttons
         self.Db = QtWidgets.QPushButton()
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap("C:\\Users\\ASTHA RAI\\Desktop\\new code\\.vscode\\../../git-course/dashboard.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -235,25 +232,20 @@ class Ui_MainWindow(object):
 
         self.main_body = QtWidgets.QWidget()
         self.main_body.setObjectName("main_body")
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        self.main_body.setSizePolicy(sizePolicy)
+        self.main_body.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.main_body_layout = QtWidgets.QVBoxLayout(self.main_body)
         self.main_body_layout.setContentsMargins(0, 0, 0, 0)
         self.main_body_layout.setSpacing(0)
 
         self.stackedWidget = QtWidgets.QStackedWidget(self.main_body)
-        self.stackedWidget.setObjectName("stackedWidget")
         self.main_body_layout.addWidget(self.stackedWidget)
-
-        self.refreshSerialPorts()
 
         self.bodyLayout.addWidget(self.main_body)
         self.mainLayout.addLayout(self.bodyLayout)
-        MainWindow.setCentralWidget(self.centralwidget)
 
+        MainWindow.setCentralWidget(self.centralwidget)
         self.retranslateUi(MainWindow)
 
-        # Load Integrated Pages
         self.dashboardPage = DashboardWidget()
         self.consolePage = ConsoleWidget()
         self.graphPage = GraphWidget()
@@ -265,7 +257,6 @@ class Ui_MainWindow(object):
         self.stackedWidget.addWidget(self.graphPage)
         self.stackedWidget.addWidget(self.mapPage)
         self.stackedWidget.addWidget(self.trajectoryPage)
-
         self.stackedWidget.setCurrentIndex(0)
 
         self.menuBtn.toggled.connect(self.side_menu.toggle)
@@ -275,13 +266,14 @@ class Ui_MainWindow(object):
         self.map.clicked.connect(lambda: self.stackedWidget.setCurrentIndex(3))
         self.trajectory.clicked.connect(lambda: self.stackedWidget.setCurrentIndex(4))
 
-        QtCore.QMetaObject.connectSlotsByName(MainWindow)
-
         self.CONNECT.clicked.connect(self.handle_connect_toggle)
-
-        self.logging_enabled = False
         self.radioButton.toggled.connect(self.handle_logging_toggle)
         self.radioButton_2.toggled.connect(self.handle_logging_toggle)
+
+        self.refreshSerialPorts()
+        self.logging_enabled = False
+
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
@@ -294,18 +286,18 @@ class Ui_MainWindow(object):
             self.comboBox1.addItem(port.device)
 
     def handle_connect_toggle(self):
-     if self.CONNECT.isChecked():
-        port = self.comboBox1.currentText()
-        baudrate = int(self.comboBox.currentText())
-        try:
-            serial_port.open_port(port, baudrate)
-            self.CONNECT.setText("DISCONNECT")
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(None, "Connection Error", f"Could not open port:\n{e}")
-            self.CONNECT.setChecked(False)
-     else:
-        serial_port.close_port()
-        self.CONNECT.setText("CONNECT")
+        if self.CONNECT.isChecked():
+            port = self.comboBox1.currentText()
+            baudrate = int(self.comboBox.currentText())
+            try:
+                serial_port.open_port(port, baudrate)
+                self.CONNECT.setText("DISCONNECT")
+            except Exception as e:
+                QtWidgets.QMessageBox.critical(None, "Connection Error", f"Could not open port:\n{e}")
+                self.CONNECT.setChecked(False)
+        else:
+            serial_port.close_port()
+            self.CONNECT.setText("CONNECT")
 
     def handle_logging_toggle(self):
         self.logging_enabled = self.radioButton.isChecked()
@@ -313,6 +305,7 @@ class Ui_MainWindow(object):
     def log_data(self, data):
         if self.logging_enabled:
             print(f"Logging data: {data}")
+
 
 if __name__ == "__main__":
     import sys
