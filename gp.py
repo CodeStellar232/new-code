@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QFont
 import pyqtgraph as pg
+from serial_port import serial_manager
 
 
 class GraphsWindow(QWidget):
@@ -17,6 +18,7 @@ class GraphsWindow(QWidget):
         self.setWindowTitle("Telemetry Graphs")
         self.setGeometry(100, 100, 1100, 650)
         self.update_graphs_signal.connect(self.update_graphs)
+        serial_manager.data_received.connect(self.receive_telemetry_data)
 
         self.arduino_connected = False
         self.serial_data = []
@@ -116,7 +118,12 @@ class GraphsWindow(QWidget):
         self.update_graphs(self.data)
         self.serial_monitor.setText(f"Serial Monitor:\n{telemetry_dict}")
 
-
+    def receive_telemetry_data(self, line: str):
+        parts = line.strip().split(',')
+        if len(parts) != len(self.telemetry_fields):
+            return
+        telemetry_dict = dict(zip(self.telemetry_fields, parts))
+        self.update_data(telemetry_dict)
 '''if __name__ == "__main__":
     app = QApplication(sys.argv)
     serial_port = None  # Replace with actual serial port object if needed

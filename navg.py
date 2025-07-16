@@ -2,6 +2,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import serial.tools.list_ports
 import warnings
 from PyQt5.QtCore import QPropertyAnimation, QEasingCurve
+from serial_port import serial_manager as serial_port
 
 # Import your integrated pages
 from db import DbWindow as DashboardWidget
@@ -12,7 +13,8 @@ from trajectory import TrajectoryPage as TrajectoryWidget
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
-# ✅ Custom Slide Menu class (fully integrated)
+
+# ✅ Custom Slide Menu class 
 class CustomSlideMenu(QtWidgets.QWidget):
     def __init__(self, parent=None, expanded_width=150, collapsed_width=60, animation_duration=300):
         super().__init__(parent)
@@ -87,13 +89,15 @@ class Ui_MainWindow(object):
 
         self.centralwidget.setObjectName("centralwidget")
         self.mainLayout = QtWidgets.QVBoxLayout(self.centralwidget)
-        self.mainLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainLayout.setContentsMargins(1, 1, 1, 1)
         self.mainLayout.setSpacing(0)
 
         # Header layout
         self.headerLayout = QtWidgets.QHBoxLayout()
         self.headerLayout.setContentsMargins(0, 0, 0, 0)
         self.headerLayout.setSpacing(0)
+        #self.header.setFixedHeight(90)
+
 
         # Menu button
         self.widget3 = QtWidgets.QWidget()
@@ -168,13 +172,13 @@ class Ui_MainWindow(object):
 
         # Body Layout
         self.bodyLayout = QtWidgets.QHBoxLayout()
-        self.bodyLayout.setContentsMargins(0, 0, 0, 0)
-        self.bodyLayout.setSpacing(0)
+        self.bodyLayout.setContentsMargins(5, 5, 5, 5)
+        self.bodyLayout.setSpacing(2)
 
         self.side_menu = CustomSlideMenu()
         self.side_menu.setObjectName("side_menu")
 
-        sideMenuLayout = self.side_menu.layout  # Already created inside CustomSlideMenu
+        sideMenuLayout = self.side_menu.layout  
 
         # Side Menu Buttons
         self.Db = QtWidgets.QPushButton()
@@ -290,20 +294,18 @@ class Ui_MainWindow(object):
             self.comboBox1.addItem(port.device)
 
     def handle_connect_toggle(self):
-        import serial
-        if self.CONNECT.isChecked():
-            port = self.comboBox1.currentText()
-            baudrate = int(self.comboBox.currentText())
-            try:
-                self.serial_port = serial.Serial(port, baudrate, timeout=1)
-                self.CONNECT.setText("DISCONNECT")
-            except Exception as e:
-                QtWidgets.QMessageBox.critical(None, "Connection Error", f"Could not open port:\n{e}")
-                self.CONNECT.setChecked(False)
-        else:
-            if hasattr(self, 'serial_port') and self.serial_port.is_open:
-                self.serial_port.close()
-            self.CONNECT.setText("CONNECT")
+     if self.CONNECT.isChecked():
+        port = self.comboBox1.currentText()
+        baudrate = int(self.comboBox.currentText())
+        try:
+            serial_port.open_port(port, baudrate)
+            self.CONNECT.setText("DISCONNECT")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(None, "Connection Error", f"Could not open port:\n{e}")
+            self.CONNECT.setChecked(False)
+     else:
+        serial_port.close_port()
+        self.CONNECT.setText("CONNECT")
 
     def handle_logging_toggle(self):
         self.logging_enabled = self.radioButton.isChecked()
