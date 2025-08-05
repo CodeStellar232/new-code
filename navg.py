@@ -7,7 +7,7 @@ from serial_port import serial_manager as serial_port
 from db import DbWindow as DashboardWidget
 from cs import ConsoleWindow as ConsoleWidget
 from gp import GraphsWindow as GraphWidget
-from map import MapPage as MapWidget
+from map2 import MapPage as MapWidget
 from trajectory import TrajectoryPage as TrajectoryWidget
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -48,9 +48,13 @@ class CustomSlideMenu(QtWidgets.QWidget):
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.setFixedSize(1100, 700)  # ✅ Fix screen size to prevent uneven maximize
-        MainWindow.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
-        MainWindow.setWindowFlags(QtCore.Qt.WindowCloseButtonHint | QtCore.Qt.WindowMinimizeButtonHint)
+        MainWindow.resize(1280, 750)  # ✅ Set initial size but allow resizing
+        MainWindow.setMinimumSize(900, 600)
+
+        '''MainWindow.setGeometry(150, 150, 1280, 750)
+        MainWindow.setFixedSize(900, 600)'''  # ✅ Fix screen size to prevent uneven maximize
+       # MainWindow.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.MinimumExpanding)
+        MainWindow.setWindowFlags(QtCore.Qt.WindowCloseButtonHint | QtCore.Qt.WindowMinimizeButtonHint | QtCore.Qt.WindowMaximizeButtonHint)
 
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -233,6 +237,7 @@ class Ui_MainWindow(object):
         self.main_body = QtWidgets.QWidget()
         self.main_body.setObjectName("main_body")
         self.main_body.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+
         self.main_body_layout = QtWidgets.QVBoxLayout(self.main_body)
         self.main_body_layout.setContentsMargins(0, 0, 0, 0)
         self.main_body_layout.setSpacing(0)
@@ -257,6 +262,7 @@ class Ui_MainWindow(object):
         self.stackedWidget.addWidget(self.graphPage)
         self.stackedWidget.addWidget(self.mapPage)
         self.stackedWidget.addWidget(self.trajectoryPage)
+        #self.stackedWidget.addWidget(self.settingsPage)
         self.stackedWidget.setCurrentIndex(0)
 
         self.menuBtn.toggled.connect(self.side_menu.toggle)
