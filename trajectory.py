@@ -1,13 +1,12 @@
-import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame
-from PyQt5.QtCore import QTimer, Qt, QUrl
+# trajectory3d.py
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame, QPushButton
+from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QColor, QVector3D, QQuaternion
 from PyQt5.Qt3DCore import QEntity, QTransform
-from PyQt5.Qt3DExtras import (
-    Qt3DWindow, QOrbitCameraController, QPhongMaterial,
-    QPlaneMesh
-)
-from PyQt5.Qt3DRender import QDirectionalLight, QMesh
+from PyQt5.Qt3DExtras import Qt3DWindow, QOrbitCameraController, QPhongMaterial, QCuboidMesh
+from PyQt5.Qt3DRender import QDirectionalLight
+import os
+import re
 
 
 class InfoPanel(QFrame):
@@ -28,6 +27,9 @@ class InfoPanel(QFrame):
         layout.addWidget(self.rpy_label)
         layout.addStretch()
 
+        self.back_button = QPushButton("Back")
+        layout.addWidget(self.back_button)
+
     def update_info(self, pos: QVector3D, rotation: QVector3D):
         self.coord_label.setText(
             f"Coordinates:\nX: {pos.x():.2f}\nY: {pos.y():.2f}\nZ: {pos.z():.2f}"
@@ -37,62 +39,60 @@ class InfoPanel(QFrame):
         )
 
 
-class TrajectoryPage(QWidget):
-    def __init__(self, serial_port=None):
-        super().__init__()
-        self.serial = serial_port
+class TrajectoryWidget(QWidget):
+    def __init__(self, serial_manager, parent=None):
+        super().__init__(parent)
+        self.serial_manager = serial_manager
+        #self.stacked_widget = stacked_widget
 
-        self.setWindowTitle("3D Trajectory Viewer")
-        self.resize(1200, 700)
-
-        # ✅ Initialize position and rotation before using them
         self.current_position = QVector3D(0, 1, 0)
-        self.current_rotation = QVector3D(15, 25, 0)
+        self.current_rotation = QVector3D(0, 0, 0)
 
-        self.view = Qt3DWindow()
-        self.container = self.createWindowContainer(self.view)
-        self.container.setMinimumSize(800, 600)
+        self.main_layout = QHBoxLayout()
+        self.setLayout(self.main_layout)
 
         self.info_panel = InfoPanel()
+        self.main_layout.addWidget(self.info_panel)
 
-        layout = QHBoxLayout()
-        layout.addWidget(self.info_panel)
-        layout.addWidget(self.container)
-        self.setLayout(layout)
+        self.view = Qt3DWindow()
+        self.container = self.createWindowContainer(self.view, parent=self)
+        self.container.setMinimumSize(800, 600)
+        self.container.setFocusPolicy(Qt.NoFocus)
+        self.main_layout.addWidget(self.container)
 
         self.root_entity = QEntity()
-
-        self._setup_grid()
-        self._load_model()
         self._setup_camera()
-
+        self._setup_grid()
+        self._load_cube()
         self.view.setRootEntity(self.root_entity)
 
-        # Timer to update info panel (simulate real-time)
-        self.timer = QTimer()
-        self.timer.timeout.connect(self._update_info)
-        self.timer.start(1000)
+        # connect serial manager
+        self.serial_manager.data_received.connect(self.on_serial_data)
+    def go_back(self):
+        self.stacked_widget.setCurrentIndex(0)
 
-    def _load_model(self):
+    def _load_cube(self):
         self.model_entity = QEntity(self.root_entity)
 
-        mesh = QMesh()
-        mesh.setSource(QUrl.fromLocalFile(r"C:\Users\AYUSHI\Desktop\RESTART\PRARAMBH\.qodo\Main\assets\rocket.obj"))  # ✅ Change path if needed
+        mesh = QCuboidMesh()
+        mesh.setXExtent(1)
+        mesh.setYExtent(2)
+        mesh.setZExtent(1)
 
         material = QPhongMaterial()
         material.setDiffuse(QColor(200, 100, 200))
 
         self.transform = QTransform()
-        self.transform.setScale(1.5)
         self.transform.setTranslation(self.current_position)
         self.transform.setRotation(QQuaternion.fromEulerAngles(
-            self.current_rotation.x(), self.current_rotation.y(), self.current_rotation.z()))
+            self.current_rotation.x(), self.current_rotation.y(), self.current_rotation.z()
+        ))
 
         self.model_entity.addComponent(mesh)
         self.model_entity.addComponent(material)
         self.model_entity.addComponent(self.transform)
 
-        # Light
+        # light
         light_entity = QEntity(self.root_entity)
         light = QDirectionalLight(light_entity)
         light.setColor(QColor(255, 255, 255))
@@ -114,49 +114,68 @@ class TrajectoryPage(QWidget):
         cam_controller.setCamera(camera)
 
     def _setup_grid(self):
+        # Just a flat plane grid at Y=0
         for axis in range(-10, 11):
             if axis == 0:
                 continue
 
-            # X-axis lines
-            x_line = QEntity(self.root_entity)
-            mesh = QPlaneMesh()
-            mesh.setWidth(0.02)
-            mesh.setHeight(20.0)
-            transform = QTransform()
-            transform.setTranslation(QVector3D(axis, 0, 0))
-            material = QPhongMaterial()
-            material.setDiffuse(QColor(180, 180, 180))
-            x_line.addComponent(mesh)
-            x_line.addComponent(material)
-            x_line.addComponent(transform)
+            # X lines
+            line_x = QEntity(self.root_entity)
+            mesh_x = QCuboidMesh()
+            mesh_x.setXExtent(0.02)
+            mesh_x.setYExtent(0.02)
+            mesh_x.setZExtent(20.0)
+            transform_x = QTransform()
+            transform_x.setTranslation(QVector3D(axis, 0, 0))
+            mat_x = QPhongMaterial()
+            mat_x.setDiffuse(QColor(180, 180, 180))
+            line_x.addComponent(mesh_x)
+            line_x.addComponent(mat_x)
+            line_x.addComponent(transform_x)
 
-            # Z-axis lines
-            z_line = QEntity(self.root_entity)
-            mesh2 = QPlaneMesh()
-            mesh2.setWidth(20.0)
-            mesh2.setHeight(0.02)
-            transform2 = QTransform()
-            transform2.setTranslation(QVector3D(0, 0, axis))
-            material2 = QPhongMaterial()
-            material2.setDiffuse(QColor(180, 180, 180))
-            z_line.addComponent(mesh2)
-            z_line.addComponent(material2)
-            z_line.addComponent(transform2)
+            # Z lines
+            line_z = QEntity(self.root_entity)
+            mesh_z = QCuboidMesh()
+            mesh_z.setXExtent(20.0)
+            mesh_z.setYExtent(0.02)
+            mesh_z.setZExtent(0.02)
+            transform_z = QTransform()
+            transform_z.setTranslation(QVector3D(0, 0, axis))
+            mat_z = QPhongMaterial()
+            mat_z.setDiffuse(QColor(180, 180, 180))
+            line_z.addComponent(mesh_z)
+            line_z.addComponent(mat_z)
+            line_z.addComponent(transform_z)
 
-    def _update_info(self):
-        pos = self.transform.translation()
-        rot = self.current_rotation  # We are not changing rotation dynamically here
-        self.info_panel.update_info(pos, rot)
+    def on_serial_data(self, data: str):
+        """
+        Example expected format:
+        LAT:12.3,LON:45.6,ALT:100,ROLL:10,PITCH:5,YAW:180
+        or
+        X:1.2,Y:2.5,Z:3.7,ROLL:15,PITCH:25,YAW:5
+        """
+        
+            # Normalize
+        parts = re.split(r'[,:]', data)
+        kv = dict(zip(parts[::2], parts[1::2]))
 
-        # Simulate a movement to the right (for demo)
-        self.current_position += QVector3D(0.1, 0, 0)
+            # position (fallback to current if missing)
+        x = float(kv.get("X", self.current_position.x()))
+        y = float(kv.get("Y", self.current_position.y()))
+        z = float(kv.get("Z", self.current_position.z()))
+        self.current_position = QVector3D(x, y, z)
+
+            # rotation
+        roll = float(kv.get("ROLL", self.current_rotation.x()))
+        pitch = float(kv.get("PITCH", self.current_rotation.y()))
+        yaw = float(kv.get("YAW", self.current_rotation.z()))
+        self.current_rotation = QVector3D(roll, pitch, yaw)
+
+            # update transform
         self.transform.setTranslation(self.current_position)
+        self.transform.setRotation(QQuaternion.fromEulerAngles(roll, pitch, yaw))
 
+            # update info panel
+        self.info_panel.update_info(self.current_position, self.current_rotation)
 
-'''if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = TrajectoryPage()
-    window.show()
-    sys.exit(app.exec_())
-'''
+        

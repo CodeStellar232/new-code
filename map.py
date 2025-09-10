@@ -5,6 +5,7 @@ import random
 import os
 import sys
 from PyQt5.QtWebEngineWidgets import QWebEngineView
+from serial_port import SerialManager
 
 class MapPage(QWidget):
     def __init__(self):
@@ -51,5 +52,4 @@ class MapPage(QWidget):
         lon = -122.4194 + lon_offset
         self.gps_label.setText(f"📍 GPS Coordinates: {lat:.5f}, {lon:.5f}")
         self.update_map(lat, lon)
-
 

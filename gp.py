@@ -1,40 +1,22 @@
-import sys
-import time
-from PyQt5.QtWidgets import (
-    QApplication, QVBoxLayout, QGridLayout, QLabel, QWidget
-)
-from PyQt5.QtCore import pyqtSignal, Qt
+# gp.py
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QLabel
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 import pyqtgraph as pg
 
 
 class GraphsWindow(QWidget):
-    update_graphs_signal = pyqtSignal(dict)
-
     def __init__(self, serial_manager, parent=None):
         super().__init__(parent)
         self.serial_manager = serial_manager
-        self.setWindowTitle("Telemetry Graphs")
-        self.setGeometry(100, 100, 1100, 650)
-        self.update_graphs_signal.connect(self.update_graphs)
+        self.setAttribute(Qt.WA_DeleteOnClose, False)
 
-        self.layout = QVBoxLayout(self)
-        self.label = QLabel("Graph output will appear here.")
-        self.layout.addWidget(self.label)
-
-        # Connect serial data to update_data
-        self.serial_manager.data_received.connect(self.update_data)
-
-        self.arduino_connected = False
+        self.graphs = {}
+        self.curves = {}
+        self.data = {}
         self.serial_data = []
-        self.arduino_port = None
 
-        self.telemetry_fields = [
-            "Team ID", "Timestamp", "Packet Count", "Altitude", "Pressure", "Temperature", "Voltage",
-            "GNSS Time", "GNSS Latitude", "GNSS Longitude", "GNSS Altitude", "GNSS Satellites",
-            "AccX", "AccY", "AccZ", "GyroX", "GyroY", "GyroZ", "Flight State"
-        ]
-
+        # Define six graphs with telemetry labels
         self.graph_specs = [
             ("Pressure [Pa]", ["Pressure"]),
             ("Altitude [m]", ["Altitude"]),
@@ -44,13 +26,7 @@ class GraphsWindow(QWidget):
             ("Temperature [°C]", ["Temperature"])
         ]
 
-        self.graphs = {}
-        self.curves = {}
-        self.data = {}
-
-        self.initUI()
-
-    def initUI(self):
+        # Layout
         main_layout = QVBoxLayout()
         grid_layout = QGridLayout()
         grid_layout.setSpacing(15)
@@ -60,73 +36,98 @@ class GraphsWindow(QWidget):
             graph = self.create_graph(title, labels)
             grid_layout.addWidget(graph, *pos)
 
+        # Serial monitor
         self.serial_monitor = QLabel("Serial Monitor:\n")
         self.serial_monitor.setStyleSheet("color: black; background-color: white; padding: 6px;")
-        self.serial_monitor.setFont(QFont('Arial', 10))
+        self.serial_monitor.setFont(QFont("Arial", 10))
 
         main_layout.addLayout(grid_layout)
         main_layout.addWidget(self.serial_monitor)
+        self.setLayout(main_layout)
 
-        self.setLayout(main_layout)  # ✅ Apply layout to the main widget
-
+        # Connect serial manager
+        
+        self.serial_manager.data_received.connect(self.on_serial_data)
+       
     def create_graph(self, title, labels):
         plot_widget = pg.PlotWidget(title=title)
-        plot_widget.setBackground("black")
         plot_widget.showGrid(x=True, y=True)
 
-        legend = pg.LegendItem(offset=(70, 30))
-        legend.setParentItem(plot_widget.getPlotItem())
+        # add legend if multi-axis graph
+        if len(labels) > 1:
+            plot_widget.addLegend(offset=(10, 10))
 
         colors = ['r', 'g', 'b', 'y', 'c', 'm', 'w']
-
         for i, label in enumerate(labels):
-            color = colors[i % len(colors)]
-            self.graphs[label] = plot_widget
-            self.data[label] = {'x': [], 'y': []}
-            curve = plot_widget.plot([], [], pen=pg.mkPen(color=color, width=2), name=label)
+            self.data[label] = {"x": [], "y": []}
+            curve = plot_widget.plot(
+                [], [], pen=pg.mkPen(color=colors[i % len(colors)], width=2),
+                name=label
+            )
             self.curves[label] = curve
-            legend.addItem(curve, label)
+            self.graphs[label] = plot_widget
 
         return plot_widget
 
-    def update_graphs(self, new_data=None):
-        if not self.arduino_connected or new_data is None:
-            return
+    def on_serial_data(self, line: str):
+        """
+        Expected format (example):
+        TEAM123,1000,1,107,100249,28,3.30,12:34:56,23.123456,72.987654,122,9,8,-7,-1,190,-85,242,ASCENT
 
-        for key, values in new_data.items():
-            if key in self.curves:
-                x_data = values['x'][-1000:]
-                y_data = values['y'][-1000:]
+        Mapping (example indices):
+        [1]  Packet counter
+        [4]  Pressure
+        [5]  Temperature
+        [6]  Voltage
+        [11] Altitude
+        [12-14] AccX, AccY, AccZ
+        [15-17] GyroX, GyroY, GyroZ
+        """
+        try:
+            parts = line.strip().split(",")
+            if len(parts) < 18:
+                return
 
-                self.data[key]['x'] = x_data
-                self.data[key]['y'] = y_data
+            t = int(parts[1])            # packet number
+            pressure = float(parts[4])
+            temp = float(parts[5])
+            voltage = float(parts[6])
+            altitude = float(parts[11])
+            accx, accy, accz = float(parts[12]), float(parts[13]), float(parts[14])
+            gyrox, gyroy, gyroz = float(parts[15]), float(parts[16]), float(parts[17])
 
-                self.curves[key].setData(x_data, y_data)
-                self.graphs[key].enableAutoRange(axis='x', enable=True)
-                self.graphs[key].enableAutoRange(axis='y', enable=True)
+            values = {
+                "Pressure": pressure,
+                "Temperature": temp,
+                "Voltage": voltage,
+                "Altitude": altitude,
+                "AccX": accx, "AccY": accy, "AccZ": accz,
+                "GyroX": gyrox, "GyroY": gyroy, "GyroZ": gyroz,
+            }
 
-    def update_data(self, telemetry_dict):
-        if not telemetry_dict:
-            return
+            for key, val in values.items():
+                if key not in self.data:
+                    continue
+                self.data[key]["x"].append(t)
+                self.data[key]["y"].append(val)
 
-        self.arduino_connected = True
-        current_time = time.time()
+                # Keep only last 500 points
+                if len(self.data[key]["x"]) > 500:
+                    self.data[key]["x"] = self.data[key]["x"][-500:]
+                    self.data[key]["y"] = self.data[key]["y"][-500:]
 
-        for key, value in telemetry_dict.items():
-            if key in self.data:
-                self.data[key]['x'].append(current_time)
-                try:
-                    self.data[key]['y'].append(float(value))
-                except ValueError:
-                    self.data[key]['y'].append(0.0)
+                self.curves[key].setData(self.data[key]["x"], self.data[key]["y"])
 
-        self.update_graphs(self.data)
-        self.serial_monitor.setText(f"Serial Monitor:\n{telemetry_dict}")
+            # Update serial monitor
+            self.serial_data.append(line)
+            if len(self.serial_data) > 2:
+                self.serial_data = self.serial_data[-2:]
+            self.serial_monitor.setText("Serial Monitor:\n" + "\n".join(self.serial_data))
 
+        except Exception as e:
+            print(f"[GraphsWindow] Error parsing line: {line} ({e})")
 
-'''if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    serial_port = None  # Replace with actual serial port object if needed
-    graphs_window = GraphsWindow(serial_port)
-    graphs_window.show()
-    sys.exit(app.exec_())'''
+    
+            self.serial_manager.data_received.disconnect(self.on_serial_data)
+       
+       

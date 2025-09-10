@@ -1,23 +1,30 @@
+# cs.py
 from PyQt5.QtWidgets import (
-    QWidget, QTextEdit, QLineEdit, QPushButton, QListWidget, QVBoxLayout, 
+    QWidget, QTextEdit, QLineEdit, QPushButton, QListWidget, QVBoxLayout,
     QHBoxLayout, QLabel, QCheckBox, QGroupBox, QSizePolicy, QGridLayout
 )
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import Qt
 from datetime import datetime
-from serial_port import serial_manager
 
+# NOTE: Expect a SerialManager instance to be passed into the constructor.
+# Do NOT call get_serial_manager() at module import time to avoid duplicate instances.
 
 class ConsoleWindow(QWidget):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, serial_manager, parent=None):
+        super().__init__(parent)
+        self.serial_manager = serial_manager
 
         self.total_packets = 0
         self.missing_packets = 0
         self.corrupt_packets = 0
         self.last_packet_id = -1
         self.last_packet_time = "N/A"
-        serial_manager.data_received.connect(self.update_data)
+
+        
+       
+        self.serial_manager.data_received.connect(self.update_data)
+       
 
         self.headers = [
             "Team ID", "Timestamp", "Packet Count", "Altitude", "Pressure", "Temperature", "Voltage",
@@ -67,7 +74,6 @@ class ConsoleWindow(QWidget):
     }
 """)
 
-
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
 
@@ -109,7 +115,7 @@ class ConsoleWindow(QWidget):
         packet_info_group = QGroupBox("Packet Info")
         packet_info_layout = QGridLayout(packet_info_group)
         packet_headers = [
-            "Total Packets", "Missing Packets", "Packet Loss %", 
+            "Total Packets", "Missing Packets", "Packet Loss %",
             "Corrupt Packets", "Last Packet ID", "Last Packet Time"
         ]
         for row, name in enumerate(packet_headers):
@@ -170,24 +176,32 @@ class ConsoleWindow(QWidget):
             label.setText("-")
 
     def update_data(self, data: str):
-        self.console_output.append(data)
-        self.console_output.moveCursor(QTextCursor.End)
-        self.raw_telemetry_display.append(data)
+        # Called via Qt signal; safe to update UI here.
+        try:
+            self.console_output.append(data)
+            self.console_output.moveCursor(QTextCursor.End)
+            self.raw_telemetry_display.append(data)
 
-        self.parse_telemetry(data)
-        self.update_packet_info(data)
+            self.parse_telemetry(data)
+            self.update_packet_info(data)
+        except Exception as e:
+            # Avoid crashing the GUI due to malformed data
+            print(f"[ConsoleWindow] update_data error: {e}")
 
     def parse_telemetry(self, line: str):
         parts = line.strip().split(',')
         if len(parts) != len(self.headers):
+            # don't attempt to map if format isn't exact
             return
         for header, value in zip(self.headers, parts):
-            self.value_labels[header].setText(value)
+            # update labels defensively
+            if header in self.value_labels:
+                self.value_labels[header].setText(value)
 
     def extract_packet_id(self, parts):
         try:
             return int(parts[2])
-        except:
+        except Exception:
             return self.last_packet_id + 1
 
     def update_packet_info(self, line: str):
@@ -202,12 +216,13 @@ class ConsoleWindow(QWidget):
                 self.last_packet_id = packet_id
                 self.total_packets += 1
                 self.last_packet_time = datetime.now().strftime("%H:%M:%S")
-            except:
+            except Exception:
                 self.corrupt_packets += 1
 
         total_expected = self.total_packets + self.missing_packets
         packet_loss = (self.missing_packets / total_expected) * 100 if total_expected else 0
 
+        # update UI
         self.packet_labels["Total Packets"].setText(str(self.total_packets))
         self.packet_labels["Missing Packets"].setText(str(self.missing_packets))
         self.packet_labels["Packet Loss %"].setText(f"{packet_loss:.2f}")

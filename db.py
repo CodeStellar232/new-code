@@ -1,4 +1,4 @@
-import sys
+# db.py
 import os
 import pandas as pd
 from PyQt5.QtWidgets import (
@@ -7,12 +7,13 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from serial_port import serial_manager
+from serial_port import SerialManager
 
-
+# Expect serial_manager to be passed into constructor
 class DbWindow(QWidget):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, serial_manager, parent=None):
+        super().__init__(parent)
+        self.serial_manager = SerialManager()
 
         self.setWindowTitle("Dashboard")
         self.setGeometry(150, 150, 1280, 750)
@@ -51,10 +52,13 @@ class DbWindow(QWidget):
         self.telemetry_fields = [
             "Team ID", "Timestamp", "Packet Count", "Altitude", "Pressure", "Temperature", "Voltage",
             "GNSS Time", "GNSS Latitude", "GNSS Longitude", "GNSS Altitude", "GNSS Satellites",
-            "Accel X", "Accel Y", "Accel Z", "Gyro X", "Gyro Y", "Gyro Z", "Flight Status"  # ✅ Added
+            "Accel X", "Accel Y", "Accel Z", "Gyro X", "Gyro Y", "Gyro Z", "Flight Status"
         ]
 
-        serial_manager.data_received.connect(self.update_data)
+        # Connect to data signal if available (defensive)
+       
+        self.serial_manager.data_received.connect(self.update_data)
+        
 
         self.data_store = []
         self.labels = {}
@@ -153,12 +157,15 @@ class DbWindow(QWidget):
                 self.values[key].setText(str(value))
 
     def update_data(self, line: str):
-        print("Received Line:", line)
-        parts = line.strip().split(',')
+        # called by serial_manager signal
+        try:
+            parts = line.strip().split(',')
 
-        if len(parts) != len(self.telemetry_fields):
-            print(f"⚠️ Invalid telemetry data (expected {len(self.telemetry_fields)} values, got {len(parts)}): {line}")
-            return
+            if len(parts) != len(self.telemetry_fields):
+                print(f"⚠️ Invalid telemetry data (expected {len(self.telemetry_fields)} values, got {len(parts)}): {line}")
+                return
 
-        telemetry_dict = dict(zip(self.telemetry_fields, parts))
-        self.update_data_store(telemetry_dict, line)
+            telemetry_dict = dict(zip(self.telemetry_fields, parts))
+            self.update_data_store(telemetry_dict, line)
+        except Exception as e:
+            print(f"[DbWindow] update_data error: {e}")

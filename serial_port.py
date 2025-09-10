@@ -1,89 +1,78 @@
-# serial_manager.py
-
-from PyQt5.QtCore import QObject, pyqtSignal, QThread, pyqtSlot
 import serial
 import serial.tools.list_ports
+from PyQt5.QtCore import QObject, pyqtSignal
+import threading
 
 
-class SerialReaderWorker(QObject):
+class SerialManager(QObject):
+    
     data_received = pyqtSignal(str)
-    finished = pyqtSignal()
-
-    def __init__(self, ser):
-        super().__init__()
-        self.ser = ser
-        self.running = True
-
-    @pyqtSlot()
-    def read_loop(self):
-        while self.running and self.ser and self.ser.is_open:
-            try:
-                line = self.ser.readline().decode(errors='ignore').strip()
-                if line:
-                    self.data_received.emit(line)
-            except Exception as e:
-                print("❌ Read error:", e)
-        self.finished.emit()
-
-    def stop(self):
-        self.running = False
-
-
-class SerialPortManager(QObject):
-    data_received = pyqtSignal(str)       # Signal with serial data
-    connected = pyqtSignal()              # Signal when port connects
-    disconnected = pyqtSignal()           # Signal when port disconnects
 
     def __init__(self):
         super().__init__()
-        self.ser = None
-        self.thread = None
-        self.worker = None
+        self.serial_connection = None
+        self.reading_thread = None
+        self.running = False
 
-    def open_port(self, port_name, baud_rate):
-        self.close_port()  # Always clean up before opening a new one
+    @staticmethod
+    def scan_usb_devices():
+        """
+        Scan all connected USB serial devices.
+        """
+        for port in serial.tools.list_ports.comports():
+            print(f"🔎 {port.device} - {port.description}")
 
+    def connect(self, port, baudrate=115200):
+        """Connect to the given serial port."""
+        if self.serial_connection and self.serial_connection.is_open:
+            self.disconnect()
+
+        self.serial_connection = serial.Serial(port, baudrate, timeout=1)
+        self.running = True
+        self.start_reading_thread()
+        print(f"✅ Connected to {port} at {baudrate} baud")
+
+    def disconnect(self):
+        """Disconnect from the serial port."""
+        self.running = False
+        if self.serial_connection and self.serial_connection.is_open:
+            self.serial_connection.close()
+            print("🔌 Disconnected")
+
+    def start_reading_thread(self):
+        """Start a background thread to read serial data."""
+        self.reading_thread = threading.Thread(target=self.read_serial_data, daemon=True)
+        self.reading_thread.start()
+
+    def read_serial_data(self):
+        """Continuously read serial data and log everything."""
         try:
-            self.ser = serial.Serial(port_name, baud_rate, timeout=1)
-            self.worker = SerialReaderWorker(self.ser)
-            self.thread = QThread()
-
-            self.worker.moveToThread(self.thread)
-
-            # Signal-slot wiring
-            self.thread.started.connect(self.worker.read_loop)
-            self.worker.data_received.connect(self.data_received.emit)
-            self.worker.finished.connect(self.thread.quit)
-            self.worker.finished.connect(self.worker.deleteLater)
-            self.thread.finished.connect(self.thread.deleteLater)
-
-            self.thread.start()
-            self.connected.emit()
-            print(f"✅ Port {port_name} opened at {baud_rate} baud.")
+            while self.running and self.serial_connection.is_open:
+                raw = self.serial_connection.readline()
+                if raw:
+                    print(f"RAW BYTES: {raw}")  
+                    try:
+                        line = raw.decode("utf-8", errors="ignore").strip()
+                        print(f"DECODED: {line}")  
+                        if line:
+                            self.on_data_received(line)
+                    except Exception as e:
+                        print(f"⚠️ Decode Error: {e}, Raw={raw}")
+                else:
+                    print("... no data received ...") 
         except Exception as e:
-            print(f"❌ Error opening port {port_name}: {e}")
+            print(f"Serial Read Error: {str(e)}")
 
-    def close_port(self):
-        if self.worker:
-            self.worker.stop()
-
-        if self.ser and self.ser.is_open:
-            try:
-                self.ser.close()
-                print(f" Port closed.")
-            except Exception as e:
-                print(f"⚠️ Error closing port: {e}")
-
-        self.worker = None
-        self.ser = None
-        self.thread = None
-        self.disconnected.emit()
+    def on_data_received(self, data):
+        
+        self.data_received.emit(data)
 
 
-# ✅ Global instance (singleton-style)
-serial_manager = SerialPortManager()
+# Singleton instance
+_serial_manager_instance = None
 
-
-# ✅ Utility to list available ports
-def get_available_ports():
-    return [port.device for port in serial.tools.list_ports.comports()]
+def get_serial_manager():
+    global _serial_manager_instance
+    if _serial_manager_instance is None:
+        _serial_manager_instance = SerialManager()
+    return _serial_manager_instance

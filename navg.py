@@ -1,14 +1,15 @@
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 import serial.tools.list_ports
 import warnings
 from PyQt5.QtCore import QPropertyAnimation, QEasingCurve
-from serial_port import serial_manager as serial_port
 
 from db import DbWindow as DashboardWidget
 from cs import ConsoleWindow as ConsoleWidget
 from gp import GraphsWindow as GraphWidget
 from map2 import MapPage as MapWidget
-from trajectory import TrajectoryPage as TrajectoryWidget
+from trajectory import TrajectoryWidget  
+from serial_port import SerialManager
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -47,14 +48,18 @@ class CustomSlideMenu(QtWidgets.QWidget):
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
+        # Create a single SerialManager instance and pass it to pages
+        self.serial_manager = SerialManager()
+
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1280, 750)  # ✅ Set initial size but allow resizing
+        MainWindow.resize(1280, 750)
         MainWindow.setMinimumSize(900, 600)
 
-        '''MainWindow.setGeometry(150, 150, 1280, 750)
-        MainWindow.setFixedSize(900, 600)'''  # ✅ Fix screen size to prevent uneven maximize
-       # MainWindow.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.MinimumExpanding)
-        MainWindow.setWindowFlags(QtCore.Qt.WindowCloseButtonHint | QtCore.Qt.WindowMinimizeButtonHint | QtCore.Qt.WindowMaximizeButtonHint)
+        MainWindow.setWindowFlags(
+            QtCore.Qt.WindowCloseButtonHint
+            | QtCore.Qt.WindowMinimizeButtonHint
+            | QtCore.Qt.WindowMaximizeButtonHint
+        )
 
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
@@ -98,7 +103,7 @@ class Ui_MainWindow(object):
         self.mainLayout.setContentsMargins(1, 1, 1, 1)
         self.mainLayout.setSpacing(0)
 
-        # Header
+        # ---------------- HEADER ----------------
         self.headerLayout = QtWidgets.QHBoxLayout()
         self.headerLayout.setContentsMargins(0, 0, 0, 0)
         self.headerLayout.setSpacing(0)
@@ -111,9 +116,12 @@ class Ui_MainWindow(object):
 
         self.menuBtn = QtWidgets.QPushButton()
         self.menuBtn.setText("")
-        icon5 = QtGui.QIcon()
-        icon5.addPixmap(QtGui.QPixmap("C:\\Users\\ASTHA RAI\\Desktop\\new code\\.vscode\\../../git-course/menu.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.menuBtn.setIcon(icon5)
+        try:
+            icon5 = QtGui.QIcon()
+            icon5.addPixmap(QtGui.QPixmap("menu.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+            self.menuBtn.setIcon(icon5)
+        except Exception:
+            pass
         self.menuBtn.setIconSize(QtCore.QSize(30, 30))
         self.menuBtn.setCheckable(True)
         self.verticalLayout_8.addWidget(self.menuBtn)
@@ -137,7 +145,10 @@ class Ui_MainWindow(object):
         groupBoxLayout.addWidget(self.groupBox)
 
         self.refreshBtn = QtWidgets.QPushButton()
-        self.refreshBtn.setIcon(QtGui.QIcon("C:\\Users\\ASTHA RAI\\Desktop\\new code\\.vscode\\../../git-course/refresh.png"))
+        try:
+            self.refreshBtn.setIcon(QtGui.QIcon("refresh.png"))
+        except Exception:
+            pass
         self.refreshBtn.setIconSize(QtCore.QSize(20, 20))
         self.refreshBtn.setFixedSize(30, 30)
         self.refreshBtn.setStyleSheet("QPushButton { padding: 2px; background-color: #ececdf; border-radius: 5px; }")
@@ -155,7 +166,7 @@ class Ui_MainWindow(object):
         gridLayout = QtWidgets.QGridLayout(self.groupBox_10)
         self.CONNECT = QtWidgets.QPushButton("CONNECT")
         self.CONNECT.setCheckable(True)
-        self.CONNECT.setAutoExclusive(True)
+        self.CONNECT.setAutoExclusive(False)
         gridLayout.addWidget(self.CONNECT, 0, 0, 1, 1)
         groupBoxLayout.addWidget(self.groupBox_10)
 
@@ -167,11 +178,16 @@ class Ui_MainWindow(object):
         loggingLayout.addWidget(self.radioButton_2)
         groupBoxLayout.addWidget(self.groupBox2)
 
+        self.loggingGroup = QtWidgets.QButtonGroup(MainWindow)
+        self.loggingGroup.addButton(self.radioButton)
+        self.loggingGroup.addButton(self.radioButton_2)
+        self.loggingGroup.setExclusive(True)
+
         headerLayoutInner.addWidget(self.groupBox_6)
         self.headerLayout.addWidget(self.headerWidget)
         self.mainLayout.addLayout(self.headerLayout)
 
-        # Body Layout
+        # ---------------- BODY ----------------
         self.bodyLayout = QtWidgets.QHBoxLayout()
         self.bodyLayout.setContentsMargins(5, 5, 5, 5)
         self.bodyLayout.setSpacing(2)
@@ -179,65 +195,73 @@ class Ui_MainWindow(object):
         self.side_menu = CustomSlideMenu()
         self.side_menu.setObjectName("side_menu")
         self.side_menu.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
-
         sideMenuLayout = self.side_menu.layout
 
-        self.Db = QtWidgets.QPushButton()
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("C:\\Users\\ASTHA RAI\\Desktop\\new code\\.vscode\\../../git-course/dashboard.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.Db.setIcon(icon)
+        self.navButtonGroup = QtWidgets.QButtonGroup(MainWindow)
+        self.navButtonGroup.setExclusive(True)
+
+        # Navigation buttons
+        self.Db = QtWidgets.QPushButton("Dashboard")
+        try:
+            self.Db.setIcon(QtGui.QIcon("dashboard.png"))
+        except Exception:
+            pass
         self.Db.setIconSize(QtCore.QSize(30, 30))
         self.Db.setCheckable(True)
-        self.Db.setAutoExclusive(True)
+        self.Db.setChecked(True)
         sideMenuLayout.addWidget(self.Db)
+        self.navButtonGroup.addButton(self.Db)
 
-        self.Cs = QtWidgets.QPushButton()
-        icon1 = QtGui.QIcon()
-        icon1.addPixmap(QtGui.QPixmap("C:\\Users\\ASTHA RAI\\Desktop\\new code\\.vscode\\../../git-course/web-programming.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.Cs.setIcon(icon1)
+        self.Cs = QtWidgets.QPushButton("Console")
+        try:
+            self.Cs.setIcon(QtGui.QIcon("web-programming.png"))
+        except Exception:
+            pass
         self.Cs.setIconSize(QtCore.QSize(30, 30))
         self.Cs.setCheckable(True)
-        self.Cs.setAutoExclusive(True)
         sideMenuLayout.addWidget(self.Cs)
+        self.navButtonGroup.addButton(self.Cs)
 
-        self.Gp = QtWidgets.QPushButton()
-        icon2 = QtGui.QIcon()
-        icon2.addPixmap(QtGui.QPixmap("C:\\Users\\ASTHA RAI\\Desktop\\new code\\.vscode\\../../git-course/graph1.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.Gp.setIcon(icon2)
+        self.Gp = QtWidgets.QPushButton("Graphs")
+        try:
+            self.Gp.setIcon(QtGui.QIcon("graph1.png"))
+        except Exception:
+            pass
         self.Gp.setIconSize(QtCore.QSize(30, 30))
         self.Gp.setCheckable(True)
-        self.Gp.setAutoExclusive(True)
         sideMenuLayout.addWidget(self.Gp)
+        self.navButtonGroup.addButton(self.Gp)
 
-        self.map = QtWidgets.QPushButton()
-        icon3 = QtGui.QIcon()
-        icon3.addPixmap(QtGui.QPixmap("C:\\Users\\ASTHA RAI\\Desktop\\new code\\.vscode\\../../git-course/map1.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.map.setIcon(icon3)
+        self.map = QtWidgets.QPushButton("Map")
+        try:
+            self.map.setIcon(QtGui.QIcon("map1.png"))
+        except Exception:
+            pass
         self.map.setIconSize(QtCore.QSize(30, 30))
         self.map.setCheckable(True)
-        self.map.setAutoExclusive(True)
         sideMenuLayout.addWidget(self.map)
+        self.navButtonGroup.addButton(self.map)
 
-        self.trajectory = QtWidgets.QPushButton()
-        icon4 = QtGui.QIcon()
-        icon4.addPixmap(QtGui.QPixmap("C:\\Users\\ASTHA RAI\\Desktop\\new code\\.vscode\\../../git-course/app-store.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.trajectory.setIcon(icon4)
+        self.trajectory = QtWidgets.QPushButton("Trajectory")
+        try:
+            self.trajectory.setIcon(QtGui.QIcon("app-store.png"))
+        except Exception:
+            pass
         self.trajectory.setIconSize(QtCore.QSize(30, 30))
         self.trajectory.setCheckable(True)
-        self.trajectory.setAutoExclusive(True)
         sideMenuLayout.addWidget(self.trajectory)
+        self.navButtonGroup.addButton(self.trajectory)
 
         self.settings = QtWidgets.QPushButton("Settings")
         self.settings.setCheckable(True)
-        self.settings.setAutoExclusive(True)
         sideMenuLayout.addWidget(self.settings)
+        self.navButtonGroup.addButton(self.settings)
 
         self.bodyLayout.addWidget(self.side_menu)
 
         self.main_body = QtWidgets.QWidget()
         self.main_body.setObjectName("main_body")
         self.main_body.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-
         self.main_body_layout = QtWidgets.QVBoxLayout(self.main_body)
         self.main_body_layout.setContentsMargins(0, 0, 0, 0)
         self.main_body_layout.setSpacing(0)
@@ -251,66 +275,116 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.retranslateUi(MainWindow)
 
-        self.dashboardPage = DashboardWidget()
-        self.consolePage = ConsoleWidget()
-        self.graphPage = GraphWidget()
-        self.mapPage = MapWidget()
-        self.trajectoryPage = TrajectoryWidget()
+        # ---------------- PAGES ----------------
+        self.dashboardPage = DashboardWidget(self.serial_manager)
+        self.consolePage = ConsoleWidget(self.serial_manager)
+        self.graphPage = GraphWidget(self.serial_manager)
+        self.mapPage = MapWidget(self.serial_manager)
+        self.trajectoryPage = TrajectoryWidget(self.serial_manager, self.stackedWidget)
 
-        self.stackedWidget.addWidget(self.dashboardPage)
-        self.stackedWidget.addWidget(self.consolePage)
-        self.stackedWidget.addWidget(self.graphPage)
-        self.stackedWidget.addWidget(self.mapPage)
-        self.stackedWidget.addWidget(self.trajectoryPage)
-        #self.stackedWidget.addWidget(self.settingsPage)
+        self.stackedWidget.addWidget(self.dashboardPage)   # index 0
+        self.stackedWidget.addWidget(self.consolePage)    # index 1
+        self.stackedWidget.addWidget(self.graphPage)      # index 2
+        self.stackedWidget.addWidget(self.mapPage)        # index 3
+        self.stackedWidget.addWidget(self.trajectoryPage) # index 4
         self.stackedWidget.setCurrentIndex(0)
 
+        # ---------------- SIGNALS ----------------
         self.menuBtn.toggled.connect(self.side_menu.toggle)
-        self.Db.clicked.connect(lambda: self.stackedWidget.setCurrentIndex(0))
-        self.Cs.clicked.connect(lambda: self.stackedWidget.setCurrentIndex(1))
-        self.Gp.clicked.connect(lambda: self.stackedWidget.setCurrentIndex(2))
-        self.map.clicked.connect(lambda: self.stackedWidget.setCurrentIndex(3))
-        self.trajectory.clicked.connect(lambda: self.stackedWidget.setCurrentIndex(4))
+        self.navButtonGroup.buttonPressed.connect(self.on_nav_button_pressed)
 
-        self.CONNECT.clicked.connect(self.handle_connect_toggle)
-        self.radioButton.toggled.connect(self.handle_logging_toggle)
-        self.radioButton_2.toggled.connect(self.handle_logging_toggle)
+        self.CONNECT.pressed.connect(self.handle_connect_toggle)
+        self.loggingGroup.buttonPressed.connect(self.handle_logging_toggle)
+
+        try:
+            self.serial_manager.data_received.connect(self.log_data)
+        except Exception:
+            pass
 
         self.refreshSerialPorts()
-        self.logging_enabled = False
-
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "NAVIGATOR"))
+
+    def on_nav_button_pressed(self, button):
+        if button == self.Db:
+            self.stackedWidget.setCurrentIndex(0)
+        elif button == self.Cs:
+            self.stackedWidget.setCurrentIndex(1)
+        elif button == self.Gp:
+            self.stackedWidget.setCurrentIndex(2)
+        elif button == self.map:
+            self.stackedWidget.setCurrentIndex(3)
+        elif button == self.trajectory:
+            self.stackedWidget.setCurrentIndex(4)
+        elif button == self.settings:
+            print("Settings page not implemented.")
 
     def refreshSerialPorts(self):
         self.comboBox1.clear()
-        ports = serial.tools.list_ports.comports()
-        for port in ports:
-            self.comboBox1.addItem(port.device)
+        ports = [port.device for port in serial.tools.list_ports.comports()]
+        if not ports:
+            self.comboBox1.addItem("No device found")
+        else:
+            for port in ports:
+                self.comboBox1.addItem(port)
 
     def handle_connect_toggle(self):
         if self.CONNECT.isChecked():
             port = self.comboBox1.currentText()
-            baudrate = int(self.comboBox.currentText())
             try:
-                serial_port.open_port(port, baudrate)
+                baudrate = int(self.comboBox.currentText())
+            except ValueError:
+                QtWidgets.QMessageBox.critical(None, "Connection Error", "Invalid baudrate selected.")
+                self.CONNECT.setChecked(False)
+                return
+
+            if "No device" in str(port):
+                QtWidgets.QMessageBox.critical(None, "Connection Error", "No USB device detected!")
+                self.CONNECT.setChecked(False)
+                return
+            try:
+                self.serial_manager.connect(port, baudrate)
                 self.CONNECT.setText("DISCONNECT")
+                self.comboBox1.setEnabled(False)
+                self.comboBox.setEnabled(False)
+                print(f"✅ Connected to {port} at {baudrate}")
             except Exception as e:
                 QtWidgets.QMessageBox.critical(None, "Connection Error", f"Could not open port:\n{e}")
                 self.CONNECT.setChecked(False)
         else:
-            serial_port.close_port()
+            try:
+                self.serial_manager.disconnect()
+            except Exception:
+                pass
+            print("🔌 Disconnected")
             self.CONNECT.setText("CONNECT")
+            self.comboBox1.setEnabled(True)
+            self.comboBox.setEnabled(True)
 
-    def handle_logging_toggle(self):
-        self.logging_enabled = self.radioButton.isChecked()
+    def handle_logging_toggle(self, button):
+        try:
+            if button.text() == "LOGGING":
+                if hasattr(self.serial_manager, "set_logging_state"):
+                    self.serial_manager.set_logging_state(True, False)
+                else:
+                    self.serial_manager.logging_enabled = True
+                    self.serial_manager.delogging_enabled = False
+                print("Logging enabled")
+            elif button.text() == "DELOGGING":
+                if hasattr(self.serial_manager, "set_logging_state"):
+                    self.serial_manager.set_logging_state(False, True)
+                else:
+                    self.serial_manager.logging_enabled = False
+                    self.serial_manager.delogging_enabled = True
+                print("Delogging enabled")
+        except Exception:
+            pass
 
     def log_data(self, data):
-        if self.logging_enabled:
-            print(f"Logging data: {data}")
+        print(f"Received: {data}")
 
 
 if __name__ == "__main__":
