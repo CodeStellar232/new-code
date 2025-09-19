@@ -8,7 +8,7 @@ from db import DbWindow as DashboardWidget
 from cs import ConsoleWindow as ConsoleWidget
 from gp import GraphsWindow as GraphWidget
 from map2 import MapPage as MapWidget
-from trajectory import TrajectoryWidget  
+#from trajectory import TrajectoryWidget  
 from serial_port import SerialManager
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -116,15 +116,12 @@ class Ui_MainWindow(object):
 
         self.menuBtn = QtWidgets.QPushButton()
         self.menuBtn.setText("")
-        try:
-            icon5 = QtGui.QIcon()
-            icon5.addPixmap(QtGui.QPixmap("menu.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-            self.menuBtn.setIcon(icon5)
-        except Exception:
-            pass
+        icon5 = QtGui.QIcon("menu.png")
+        self.menuBtn.setIcon(icon5)
         self.menuBtn.setIconSize(QtCore.QSize(30, 30))
         self.menuBtn.setCheckable(True)
         self.verticalLayout_8.addWidget(self.menuBtn)
+        self.headerLayout.addWidget(self.widget3)
         self.headerLayout.addWidget(self.widget3)
 
         self.header = QtWidgets.QWidget()
@@ -145,10 +142,8 @@ class Ui_MainWindow(object):
         groupBoxLayout.addWidget(self.groupBox)
 
         self.refreshBtn = QtWidgets.QPushButton()
-        try:
-            self.refreshBtn.setIcon(QtGui.QIcon("refresh.png"))
-        except Exception:
-            pass
+        
+        self.refreshBtn.setIcon(QtGui.QIcon("refresh.png"))
         self.refreshBtn.setIconSize(QtCore.QSize(20, 20))
         self.refreshBtn.setFixedSize(30, 30)
         self.refreshBtn.setStyleSheet("QPushButton { padding: 2px; background-color: #ececdf; border-radius: 5px; }")
@@ -191,72 +186,33 @@ class Ui_MainWindow(object):
         self.bodyLayout = QtWidgets.QHBoxLayout()
         self.bodyLayout.setContentsMargins(5, 5, 5, 5)
         self.bodyLayout.setSpacing(2)
-
         self.side_menu = CustomSlideMenu()
         self.side_menu.setObjectName("side_menu")
         self.side_menu.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
         sideMenuLayout = self.side_menu.layout
-
         self.navButtonGroup = QtWidgets.QButtonGroup(MainWindow)
         self.navButtonGroup.setExclusive(True)
 
         # Navigation buttons
-        self.Db = QtWidgets.QPushButton("Dashboard")
-        try:
-            self.Db.setIcon(QtGui.QIcon("dashboard.png"))
-        except Exception:
-            pass
-        self.Db.setIconSize(QtCore.QSize(30, 30))
-        self.Db.setCheckable(True)
+        def create_nav_button(text, icon_path):
+            btn = QtWidgets.QPushButton(text)
+            btn.setCheckable(True)
+            icon = QtGui.QIcon(icon_path)
+            btn.setIcon(icon)
+            btn.setIconSize(QtCore.QSize(30, 30))
+            sideMenuLayout.addWidget(btn)
+            self.navButtonGroup.addButton(btn)
+            return btn
+        self.Db = create_nav_button("Dashboard", "dashboard.png")
         self.Db.setChecked(True)
-        sideMenuLayout.addWidget(self.Db)
-        self.navButtonGroup.addButton(self.Db)
-
-        self.Cs = QtWidgets.QPushButton("Console")
-        try:
-            self.Cs.setIcon(QtGui.QIcon("web-programming.png"))
-        except Exception:
-            pass
-        self.Cs.setIconSize(QtCore.QSize(30, 30))
-        self.Cs.setCheckable(True)
-        sideMenuLayout.addWidget(self.Cs)
-        self.navButtonGroup.addButton(self.Cs)
-
-        self.Gp = QtWidgets.QPushButton("Graphs")
-        try:
-            self.Gp.setIcon(QtGui.QIcon("graph1.png"))
-        except Exception:
-            pass
-        self.Gp.setIconSize(QtCore.QSize(30, 30))
-        self.Gp.setCheckable(True)
-        sideMenuLayout.addWidget(self.Gp)
-        self.navButtonGroup.addButton(self.Gp)
-
-        self.map = QtWidgets.QPushButton("Map")
-        try:
-            self.map.setIcon(QtGui.QIcon("map1.png"))
-        except Exception:
-            pass
-        self.map.setIconSize(QtCore.QSize(30, 30))
-        self.map.setCheckable(True)
-        sideMenuLayout.addWidget(self.map)
-        self.navButtonGroup.addButton(self.map)
-
-        self.trajectory = QtWidgets.QPushButton("Trajectory")
-        try:
-            self.trajectory.setIcon(QtGui.QIcon("app-store.png"))
-        except Exception:
-            pass
-        self.trajectory.setIconSize(QtCore.QSize(30, 30))
-        self.trajectory.setCheckable(True)
-        sideMenuLayout.addWidget(self.trajectory)
-        self.navButtonGroup.addButton(self.trajectory)
-
+        self.Cs = create_nav_button("Console", "web-programming.png")
+        self.Gp = create_nav_button("Graphs", "graph1.png")
+        self.map = create_nav_button("Map", "map1.png")
+        self.trajectory = create_nav_button("Trajectory", "app-store.png")
         self.settings = QtWidgets.QPushButton("Settings")
         self.settings.setCheckable(True)
         sideMenuLayout.addWidget(self.settings)
         self.navButtonGroup.addButton(self.settings)
-
         self.bodyLayout.addWidget(self.side_menu)
 
         self.main_body = QtWidgets.QWidget()
@@ -280,14 +236,26 @@ class Ui_MainWindow(object):
         self.consolePage = ConsoleWidget(self.serial_manager)
         self.graphPage = GraphWidget(self.serial_manager)
         self.mapPage = MapWidget(self.serial_manager)
-        self.trajectoryPage = TrajectoryWidget(self.serial_manager, self.stackedWidget)
+        #self.trajectoryPage = TrajectoryWidget(self.serial_manager, self.stackedWidget)
 
         self.stackedWidget.addWidget(self.dashboardPage)   # index 0
         self.stackedWidget.addWidget(self.consolePage)    # index 1
         self.stackedWidget.addWidget(self.graphPage)      # index 2
         self.stackedWidget.addWidget(self.mapPage)        # index 3
-        self.stackedWidget.addWidget(self.trajectoryPage) # index 4
+        #self.stackedWidget.addWidget(self.trajectoryPage) # index 4
         self.stackedWidget.setCurrentIndex(0)
+        def on_nav_button_pressed(self, button):
+          if button == self.Db:
+           self.stackedWidget.setCurrentIndex(0)
+          elif button == self.Cs:
+           self.stackedWidget.setCurrentIndex(1)
+          elif button == self.Gp:
+           self.stackedWidget.setCurrentIndex(2)
+          elif button == self.map:
+            self.stackedWidget.setCurrentIndex(3)
+          elif button == self.trajectory:
+           self.stackedWidget.setCurrentIndex(4)
+          
 
         # ---------------- SIGNALS ----------------
         self.menuBtn.toggled.connect(self.side_menu.toggle)
@@ -319,8 +287,7 @@ class Ui_MainWindow(object):
             self.stackedWidget.setCurrentIndex(3)
         elif button == self.trajectory:
             self.stackedWidget.setCurrentIndex(4)
-        elif button == self.settings:
-            print("Settings page not implemented.")
+        
 
     def refreshSerialPorts(self):
         self.comboBox1.clear()

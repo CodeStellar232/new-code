@@ -9,11 +9,12 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 from serial_port import SerialManager
 
-# Expect serial_manager to be passed into constructor
+
 class DbWindow(QWidget):
     def __init__(self, serial_manager, parent=None):
         super().__init__(parent)
-        self.serial_manager = SerialManager()
+        self.serial_manager = serial_manager
+
 
         self.setWindowTitle("Dashboard")
         self.setGeometry(150, 150, 1280, 750)
@@ -69,8 +70,8 @@ class DbWindow(QWidget):
     def initUI(self):
         main_layout = QHBoxLayout()
         self.setLayout(main_layout)
-        main_layout.setContentsMargins(30, 30, 30, 30)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(30, 10, 30, 30)
+        main_layout.setSpacing(8)
 
         telemetry_group = QGroupBox("Telemetry Dashboard")
         telemetry_layout = QGridLayout()
@@ -78,8 +79,8 @@ class DbWindow(QWidget):
         telemetry_layout.setVerticalSpacing(30)
 
         for i, key in enumerate(self.telemetry_fields):
-            row = i // 3
-            col = i % 3
+            row = i // 4
+            col = i % 4
 
             card = QGroupBox()
             card.setMinimumSize(240, 100)

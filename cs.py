@@ -7,8 +7,6 @@ from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import Qt
 from datetime import datetime
 
-# NOTE: Expect a SerialManager instance to be passed into the constructor.
-# Do NOT call get_serial_manager() at module import time to avoid duplicate instances.
 
 class ConsoleWindow(QWidget):
     def __init__(self, serial_manager, parent=None):
