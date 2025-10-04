@@ -115,6 +115,28 @@ class MapPage(QWidget):
 
         except Exception as e:
             print(f"[MapPage] Error parsing data: {e}")
+            
+    def convert_data(data: str, expected_type: str):
+    
+        if expected_type == "string":
+            return str(data)
+
+        elif expected_type == "int":
+            return int(data)
+
+        elif expected_type == "float":
+            return float(data)
+
+        elif expected_type == "char":
+            return data[0] if len(data) > 0 else ''
+
+        elif expected_type == "uint8_t":
+            val = int(data)
+            return val if 0 <= val <= 255 else None
+
+        else:
+            # fallback
+            return str(data)
 
     def update_labels(self):
         try:

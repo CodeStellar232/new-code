@@ -1,34 +1,33 @@
 # trajectory3d.py
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame, QPushButton
-from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame, QSizePolicy
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QVector3D, QQuaternion
 from PyQt5.Qt3DCore import QEntity, QTransform
-from PyQt5.Qt3DExtras import Qt3DWindow, QOrbitCameraController, QPhongMaterial, QCuboidMesh
+from PyQt5.Qt3DExtras import QPhongMaterial, QCuboidMesh, QOrbitCameraController, Qt3DWindow
 from PyQt5.Qt3DRender import QDirectionalLight
-import os
 import re
 
 
 class InfoPanel(QFrame):
-    def __init__(self, parent=None):
+    """Side panel to display position and orientation info"""
+    def __init__(self, serial_manager=None, parent=None):
         super().__init__(parent)
+        self.serial_manager = serial_manager
         self.setFixedWidth(250)
         self.setFrameShape(QFrame.StyledPanel)
         layout = QVBoxLayout()
         self.setLayout(layout)
 
+        layout.addWidget(QLabel("<b>Object Info</b>"))
+        layout.addSpacing(10)
+
         self.coord_label = QLabel("Coordinates:\nX: 0.00\nY: 0.00\nZ: 0.00")
         self.rpy_label = QLabel("Orientation:\nRoll: 0°\nPitch: 0°\nYaw: 0°")
 
-        layout.addWidget(QLabel("<b>Object Info</b>"))
-        layout.addSpacing(10)
         layout.addWidget(self.coord_label)
         layout.addSpacing(10)
         layout.addWidget(self.rpy_label)
         layout.addStretch()
-
-        self.back_button = QPushButton("Back")
-        layout.addWidget(self.back_button)
 
     def update_info(self, pos: QVector3D, rotation: QVector3D):
         self.coord_label.setText(
@@ -40,10 +39,10 @@ class InfoPanel(QFrame):
 
 
 class TrajectoryWidget(QWidget):
-    def __init__(self, serial_manager, parent=None):
+    """3D Trajectory Viewer embedded safely in QWidget"""
+    def __init__(self, serial_manager=None, parent=None):
         super().__init__(parent)
         self.serial_manager = serial_manager
-        #self.stacked_widget = stacked_widget
 
         self.current_position = QVector3D(0, 1, 0)
         self.current_rotation = QVector3D(0, 0, 0)
@@ -51,27 +50,32 @@ class TrajectoryWidget(QWidget):
         self.main_layout = QHBoxLayout()
         self.setLayout(self.main_layout)
 
+        # Info panel
         self.info_panel = InfoPanel()
         self.main_layout.addWidget(self.info_panel)
 
+        # Create Qt3DWindow and wrap in QWidget container
         self.view = Qt3DWindow()
-        self.container = self.createWindowContainer(self.view, parent=self)
-        self.container.setMinimumSize(800, 600)
-        self.container.setFocusPolicy(Qt.NoFocus)
+        self.view.defaultFrameGraph().setClearColor(QColor(50, 50, 50))
+        self.container = QWidget.createWindowContainer(self.view)
+        self.container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.main_layout.addWidget(self.container)
 
+        # Root entity
         self.root_entity = QEntity()
+        self.view.setRootEntity(self.root_entity)
+
+        # Setup scene
         self._setup_camera()
         self._setup_grid()
         self._load_cube()
-        self.view.setRootEntity(self.root_entity)
 
-        # connect serial manager
-        self.serial_manager.data_received.connect(self.on_serial_data)
-    def go_back(self):
-        self.stacked_widget.setCurrentIndex(0)
+        # Serial updates scheduled safely
+        
+        self.serial_manager.data_received.connect(self.schedule_update)
 
     def _load_cube(self):
+        """Load a cube representing the object"""
         self.model_entity = QEntity(self.root_entity)
 
         mesh = QCuboidMesh()
@@ -80,7 +84,7 @@ class TrajectoryWidget(QWidget):
         mesh.setZExtent(1)
 
         material = QPhongMaterial()
-        material.setDiffuse(QColor(200, 100, 200))
+        material.setDiffuse(QColor(100, 200, 255))
 
         self.transform = QTransform()
         self.transform.setTranslation(self.current_position)
@@ -92,13 +96,13 @@ class TrajectoryWidget(QWidget):
         self.model_entity.addComponent(material)
         self.model_entity.addComponent(self.transform)
 
-        # light
+        # Directional light
         light_entity = QEntity(self.root_entity)
         light = QDirectionalLight(light_entity)
         light.setColor(QColor(255, 255, 255))
-        light.setIntensity(0.9)
+        light.setIntensity(1.0)
         light_transform = QTransform()
-        light_transform.setTranslation(QVector3D(10, 10, 10))
+        light_transform.setTranslation(QVector3D(10, 20, 10))
         light_entity.addComponent(light)
         light_entity.addComponent(light_transform)
 
@@ -114,7 +118,6 @@ class TrajectoryWidget(QWidget):
         cam_controller.setCamera(camera)
 
     def _setup_grid(self):
-        # Just a flat plane grid at Y=0
         for axis in range(-10, 11):
             if axis == 0:
                 continue
@@ -147,35 +150,29 @@ class TrajectoryWidget(QWidget):
             line_z.addComponent(mat_z)
             line_z.addComponent(transform_z)
 
+    def schedule_update(self, data: str):
+        """Schedule the update safely to avoid blocking the main UI thread"""
+        QTimer.singleShot(0, lambda: self.on_serial_data(data))
+
     def on_serial_data(self, data: str):
-        """
-        Example expected format:
-        LAT:12.3,LON:45.6,ALT:100,ROLL:10,PITCH:5,YAW:180
-        or
-        X:1.2,Y:2.5,Z:3.7,ROLL:15,PITCH:25,YAW:5
-        """
-        
-            # Normalize
-        parts = re.split(r'[,:]', data)
-        kv = dict(zip(parts[::2], parts[1::2]))
+        """Update position and rotation from serial data"""
+        try:
+            parts = re.split(r'[,:]', data)
+            kv = dict(zip(parts[::2], parts[1::2]))
 
-            # position (fallback to current if missing)
-        x = float(kv.get("X", self.current_position.x()))
-        y = float(kv.get("Y", self.current_position.y()))
-        z = float(kv.get("Z", self.current_position.z()))
+            x = float(kv.get("X", self.current_position.x()))
+            y = float(kv.get("Y", self.current_position.y()))
+            z = float(kv.get("Z", self.current_position.z()))
+            roll = float(kv.get("ROLL", self.current_rotation.x()))
+            pitch = float(kv.get("PITCH", self.current_rotation.y()))
+            yaw = float(kv.get("YAW", self.current_rotation.z()))
+        except (ValueError, IndexError):
+            return  
+
         self.current_position = QVector3D(x, y, z)
-
-            # rotation
-        roll = float(kv.get("ROLL", self.current_rotation.x()))
-        pitch = float(kv.get("PITCH", self.current_rotation.y()))
-        yaw = float(kv.get("YAW", self.current_rotation.z()))
         self.current_rotation = QVector3D(roll, pitch, yaw)
 
-            # update transform
         self.transform.setTranslation(self.current_position)
         self.transform.setRotation(QQuaternion.fromEulerAngles(roll, pitch, yaw))
 
-            # update info panel
         self.info_panel.update_info(self.current_position, self.current_rotation)
-
-        

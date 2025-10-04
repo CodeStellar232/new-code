@@ -10,6 +10,7 @@ from gp import GraphsWindow as GraphWidget
 from map2 import MapPage as MapWidget
 #from trajectory import TrajectoryWidget  
 from serial_port import SerialManager
+# from resource_rc import *
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -181,6 +182,9 @@ class Ui_MainWindow(object):
         headerLayoutInner.addWidget(self.groupBox_6)
         self.headerLayout.addWidget(self.headerWidget)
         self.mainLayout.addLayout(self.headerLayout)
+        
+        
+        
 
         # ---------------- BODY ----------------
         self.bodyLayout = QtWidgets.QHBoxLayout()
@@ -208,7 +212,7 @@ class Ui_MainWindow(object):
         self.Cs = create_nav_button("Console", "web-programming.png")
         self.Gp = create_nav_button("Graphs", "graph1.png")
         self.map = create_nav_button("Map", "map1.png")
-        self.trajectory = create_nav_button("Trajectory", "app-store.png")
+        #self.trajectory = create_nav_button("Trajectory", "app-store.png")
         self.settings = QtWidgets.QPushButton("Settings")
         self.settings.setCheckable(True)
         sideMenuLayout.addWidget(self.settings)
@@ -236,7 +240,7 @@ class Ui_MainWindow(object):
         self.consolePage = ConsoleWidget(self.serial_manager)
         self.graphPage = GraphWidget(self.serial_manager)
         self.mapPage = MapWidget(self.serial_manager)
-        #self.trajectoryPage = TrajectoryWidget(self.serial_manager, self.stackedWidget)
+        #self.trajectoryPage = TrajectoryWidget(self.serial_manager)
 
         self.stackedWidget.addWidget(self.dashboardPage)   # index 0
         self.stackedWidget.addWidget(self.consolePage)    # index 1
@@ -254,8 +258,7 @@ class Ui_MainWindow(object):
           elif button == self.map:
             self.stackedWidget.setCurrentIndex(3)
           elif button == self.trajectory:
-           self.stackedWidget.setCurrentIndex(4)
-          
+            self.stackedWidget.setCurrentIndex(4)
 
         # ---------------- SIGNALS ----------------
         self.menuBtn.toggled.connect(self.side_menu.toggle)

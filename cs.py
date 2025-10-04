@@ -1,7 +1,7 @@
 # cs.py
 from PyQt5.QtWidgets import (
     QWidget, QTextEdit, QLineEdit, QPushButton, QListWidget, QVBoxLayout,
-    QHBoxLayout, QLabel, QCheckBox, QGroupBox, QSizePolicy, QGridLayout
+    QHBoxLayout, QLabel, QCheckBox, QGroupBox, QGridLayout
 )
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import Qt
@@ -13,21 +13,20 @@ class ConsoleWindow(QWidget):
         super().__init__(parent)
         self.serial_manager = serial_manager
 
+        # Packet tracking
         self.total_packets = 0
         self.missing_packets = 0
         self.corrupt_packets = 0
         self.last_packet_id = -1
         self.last_packet_time = "N/A"
 
-        
-       
+        # Connect signal
         self.serial_manager.data_received.connect(self.update_data)
-       
 
+        # Required telemetry headers only
         self.headers = [
-            "Team ID", "Timestamp", "Packet Count", "Altitude", "Pressure", "Temperature", "Voltage",
-            "GNSS Time", "GNSS Latitude", "GNSS Longitude", "GNSS Altitude", "GNSS Satellites",
-            "Accel X", "Accel Y", "Accel Z", "Gyro X", "Gyro Y", "Gyro Z", "Flight State"
+            "Team ID", "Timestamp", "Packet Count", "Altitude",
+            "Pressure", "Temperature", "Voltage"
         ]
 
         self.packet_labels = {}
@@ -35,59 +34,28 @@ class ConsoleWindow(QWidget):
 
         self.setup_ui()
         self.setStyleSheet("""
-    QGroupBox {
-        border: 2px solid #555;
-        border-radius: 8px;
-        margin-top: 10px;
-        padding: 10px;
-        background-color: #f4f4f4;
-    }
-
-    QGroupBox::title {
-        subcontrol-origin: margin;
-        left: 10px;
-        padding: 0 3px;
-        color: #333;
-        font-weight: bold;
-    }
-
-    QTextEdit, QLineEdit, QListWidget, QLabel {
-        background-color: white;
-        border: 1px solid #aaa;
-        border-radius: 5px;
-    }
-
-    QPushButton {
-        background-color: #d0d0d0;
-        border-radius: 5px;
-        padding: 6px;
-    }
-
-    QPushButton:hover {
-        background-color: #bbb;
-    }
-
-    QCheckBox {
-        padding-left: 5px;
-    }
-""")
+            QGroupBox { border: 2px solid #555; border-radius: 8px; margin-top: 10px; padding: 10px; background-color: #f4f4f4; }
+            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #333; font-weight: bold; }
+            QTextEdit, QLineEdit, QListWidget, QLabel { background-color: white; border: 1px solid #aaa; border-radius: 5px; }
+            QPushButton { background-color: #d0d0d0; border-radius: 5px; padding: 6px; }
+            QPushButton:hover { background-color: #bbb; }
+            QCheckBox { padding-left: 5px; }
+        """)
 
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
 
-        # Left console section
+        # Left console
         console_group = QGroupBox("Console Dashboard")
         console_layout = QVBoxLayout(console_group)
 
         command_layout = QHBoxLayout()
         self.command_input = QLineEdit()
         self.command_input.setPlaceholderText("Enter Command")
-
         self.send_button = QPushButton("Send")
         self.clear_button = QPushButton("Clear")
         self.timestamp_checkbox = QCheckBox("Timestamp")
         self.timestamp_checkbox.setChecked(True)
-
         command_layout.addWidget(self.command_input)
         command_layout.addWidget(self.send_button)
         command_layout.addWidget(self.clear_button)
@@ -95,7 +63,6 @@ class ConsoleWindow(QWidget):
 
         self.console_output = QTextEdit()
         self.console_output.setReadOnly(True)
-
         self.raw_telemetry_display = QTextEdit()
         self.raw_telemetry_display.setReadOnly(True)
 
@@ -112,10 +79,7 @@ class ConsoleWindow(QWidget):
 
         packet_info_group = QGroupBox("Packet Info")
         packet_info_layout = QGridLayout(packet_info_group)
-        packet_headers = [
-            "Total Packets", "Missing Packets", "Packet Loss %",
-            "Corrupt Packets", "Last Packet ID", "Last Packet Time"
-        ]
+        packet_headers = ["Total Packets", "Missing Packets", "Packet Loss %", "Corrupt Packets", "Last Packet ID", "Last Packet Time"]
         for row, name in enumerate(packet_headers):
             packet_info_layout.addWidget(QLabel(f"{name}:"), row, 0)
             label = QLabel("-")
@@ -130,11 +94,10 @@ class ConsoleWindow(QWidget):
         console_layout.addLayout(split_layout)
         main_layout.addWidget(console_group, 3)
 
-        # Right telemetry panel
-        telemetry_group = QGroupBox("Raw Telemetry")
+        # Telemetry panel
+        telemetry_group = QGroupBox("Telemetry")
         telemetry_layout = QVBoxLayout(telemetry_group)
         telemetry_values_layout = QGridLayout()
-
         for i, header in enumerate(self.headers):
             telemetry_values_layout.addWidget(QLabel(f"{header}:"), i, 0)
             value_label = QLabel("-")
@@ -147,9 +110,7 @@ class ConsoleWindow(QWidget):
         self.send_button.clicked.connect(self.send_command)
         self.clear_button.clicked.connect(self.clear_console)
         self.command_input.returnPressed.connect(self.send_command)
-        self.command_history_list.itemClicked.connect(
-            lambda item: self.command_input.setText(item.text())
-        )
+        self.command_history_list.itemClicked.connect(lambda item: self.command_input.setText(item.text()))
 
     def send_command(self):
         command = self.command_input.text().strip()
@@ -174,7 +135,6 @@ class ConsoleWindow(QWidget):
             label.setText("-")
 
     def update_data(self, data: str):
-        # Called via Qt signal; safe to update UI here.
         try:
             self.console_output.append(data)
             self.console_output.moveCursor(QTextCursor.End)
@@ -183,16 +143,13 @@ class ConsoleWindow(QWidget):
             self.parse_telemetry(data)
             self.update_packet_info(data)
         except Exception as e:
-            # Avoid crashing the GUI due to malformed data
             print(f"[ConsoleWindow] update_data error: {e}")
 
     def parse_telemetry(self, line: str):
         parts = line.strip().split(',')
-        if len(parts) != len(self.headers):
-            # don't attempt to map if format isn't exact
+        if len(parts) < len(self.headers):
             return
         for header, value in zip(self.headers, parts):
-            # update labels defensively
             if header in self.value_labels:
                 self.value_labels[header].setText(value)
 
@@ -220,10 +177,28 @@ class ConsoleWindow(QWidget):
         total_expected = self.total_packets + self.missing_packets
         packet_loss = (self.missing_packets / total_expected) * 100 if total_expected else 0
 
-        # update UI
         self.packet_labels["Total Packets"].setText(str(self.total_packets))
         self.packet_labels["Missing Packets"].setText(str(self.missing_packets))
         self.packet_labels["Packet Loss %"].setText(f"{packet_loss:.2f}")
         self.packet_labels["Corrupt Packets"].setText(str(self.corrupt_packets))
         self.packet_labels["Last Packet ID"].setText(str(self.last_packet_id))
         self.packet_labels["Last Packet Time"].setText(self.last_packet_time)
+
+    @staticmethod
+    def convert_data(data: str, expected_type: str):
+        try:
+            if expected_type == "string":
+                return str(data)
+            elif expected_type == "int":
+                return int(data)
+            elif expected_type == "float":
+                return float(data)
+            elif expected_type == "char":
+                return data[0] if data else ''
+            elif expected_type == "uint8_t":
+                val = int(data)
+                return val if 0 <= val <= 255 else None
+            else:
+                return str(data)
+        except Exception:
+            return None

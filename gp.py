@@ -23,7 +23,8 @@ class GraphsWindow(QWidget):
             ("Voltage [V]", ["Voltage"]),
             ("Accelerometer [m/s²]", ["AccX", "AccY", "AccZ"]),
             ("Gyroscope [rad/s]", ["GyroX", "GyroY", "GyroZ"]),
-            ("Temperature [°C]", ["Temperature"])
+            ("Temperature [°C]", ["Temperature"]),
+            ("Magnitude [m/s²]", ["Magnitude"])
         ]
 
         # Layout
@@ -31,7 +32,7 @@ class GraphsWindow(QWidget):
         grid_layout = QGridLayout()
         grid_layout.setSpacing(15)
 
-        positions = [(i // 3, i % 3) for i in range(len(self.graph_specs))]
+        positions = [(i // 5, i % 5) for i in range(len(self.graph_specs))]
         for pos, (title, labels) in zip(positions, self.graph_specs):
             graph = self.create_graph(title, labels)
             grid_layout.addWidget(graph, *pos)
@@ -95,6 +96,7 @@ class GraphsWindow(QWidget):
             altitude = float(parts[11])
             accx, accy, accz = float(parts[12]), float(parts[13]), float(parts[14])
             gyrox, gyroy, gyroz = float(parts[15]), float(parts[16]), float(parts[17])
+            magnitude = float((accx**2 + accy**2 + accz**2)**0.5)   
 
             values = {
                 "Pressure": pressure,
@@ -103,6 +105,8 @@ class GraphsWindow(QWidget):
                 "Altitude": altitude,
                 "AccX": accx, "AccY": accy, "AccZ": accz,
                 "GyroX": gyrox, "GyroY": gyroy, "GyroZ": gyroz,
+                "Magnitude": (accx**2 + accy**2 + accz**2)**0.5
+                
             }
 
             for key, val in values.items():
@@ -129,5 +133,30 @@ class GraphsWindow(QWidget):
 
     
             self.serial_manager.data_received.disconnect(self.on_serial_data)
+    # utils.py
+    def convert_data(data: str, expected_type: str):
+    
+        if expected_type == "string":
+            return str(data)
+
+        elif expected_type == "int":
+            return int(data)
+
+        elif expected_type == "float":
+            return float(data)
+
+        elif expected_type == "char":
+            return data[0] if len(data) > 0 else ''
+
+        elif expected_type == "uint8_t":
+            val = int(data)
+            return val if 0 <= val <= 255 else None
+
+        else:
+            # fallback
+            return str(data)
+
+   
+
        
        
